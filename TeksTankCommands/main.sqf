@@ -1,15 +1,14 @@
 /* 
 Author: Tek
-Version 1.0.0
+Version 1.0.1
 */
-#define IS_CREWED_BY_COMMANDER_AND_GUNNER "player isEqualTo commander objectParent player && !(isNull gunner objectParent player)"
-#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_NO_WATCH_SECTOR_ORDER "player isEqualTo commander objectParent player && !(isNull gunner objectParent player) && !TTC_hasWatchSectorOrder"
-#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_WATCH_SECTOR_ORDER "player isEqualTo commander objectParent player && !(isNull gunner objectParent player) && TTC_hasWatchSectorOrder"
-#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_AUTOTARGET_DISABLED_WITH_NO_TARGET_ORDER "player isEqualTo commander objectParent player && !((gunner objectParent player) checkAIFeature 'AUTOTARGET') && !TTC_hasTargetOrder"
-#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_AUTOTARGET_ENABLED_WITH_NO_TARGET_ORDER "player isEqualTo commander objectParent player && (gunner objectParent player) checkAIFeature 'AUTOTARGET' && !TTC_hasTargetOrder"
-#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_TARGET_ORDER "player isEqualTo commander objectParent player && !(isNull gunner objectParent player) && TTC_hasTargetOrder"
-#define IS_CREWED_BY_COMMANDER_AND_GUNNER_AND_TURNED_OUT_AND_WEAPON_READY "player isEqualTo commander objectParent player && !(isNull gunner objectParent player) && isTurnedOut player && weaponState [vehicle player, vehicle player unitTurret gunner vehicle player, currentWeapon vehicle player] # 5 isEqualTo 0"
-
+#define IS_CREWED_BY_COMMANDER_AND_GUNNER "player isEqualTo commander objectParent player && {!(isNull gunner objectParent player)}"
+#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_NO_WATCH_SECTOR_ORDER "!TTC_hasWatchSectorOrder && {player isEqualTo commander objectParent player} && {!(isNull gunner objectParent player)}"
+#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_WATCH_SECTOR_ORDER "TTC_hasWatchSectorOrder && {player isEqualTo commander objectParent player} && {!(isNull gunner objectParent player)}"
+#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_AUTOTARGET_DISABLED_WITH_NO_TARGET_ORDER "!TTC_hasTargetOrder && {player isEqualTo commander objectParent player} && {!((gunner objectParent player) checkAIFeature 'AUTOTARGET')}"
+#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_AUTOTARGET_ENABLED_WITH_NO_TARGET_ORDER "!TTC_hasTargetOrder && {player isEqualTo commander objectParent player} && {(gunner objectParent player) checkAIFeature 'AUTOTARGET'}"
+#define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_TARGET_ORDER "TTC_hasTargetOrder && {player isEqualTo commander objectParent player} && {!(isNull gunner objectParent player)}"
+#define IS_CREWED_BY_COMMANDER_AND_GUNNER_AND_TURNED_OUT_AND_WEAPON_READY "isTurnedOut player && {player isEqualTo commander objectParent player} && {!(isNull gunner objectParent player)} && {weaponState [vehicle player, vehicle player unitTurret gunner vehicle player, currentWeapon vehicle player] # 5 isEqualTo 0}"
 
 TTC_getTargetType = {
 	/* 
@@ -29,7 +28,7 @@ TTC_getTargetType = {
 	_category = _objectType # 0;
 	_type = _objectType # 1;
 
-	if (_category isEqualTo "Soldier") exitWith {"Infantry"};
+if (_category isEqualTo "Soldier") exitWith {"Infantry"};
 	if (_category isEqualTo "Logic") exitWith {"Logic Object"};
 	if (_category isEqualTo "Object") exitWith {"Object"};
 	if (_category isEqualTo "Vehicle") then {
@@ -135,13 +134,11 @@ TTC_orderTargetUnit = {
 	_str = format["Gunner target %1, bearing %2, range %3", _targetType, _bearingToTarget, _distanceToTarget];
 	_commander groupChat _str;
 
-	while {alive _target && TTC_hasTargetOrder} do {
+	while {TTC_hasTargetOrder && {alive _target}} do {
 		sleep 1;
 	};
 
-	/*Either target is destroyed or target order is cancelled*/
-	waitUntil {sleep 0.5; !alive _target || !TTC_hasTargetOrder};
-	_gunner groupChat "Target neutralized!";
+	if (!alive _target) then {_gunner groupChat "Target neutralized!";};
 	_gunner doWatch objNull;
 	TTC_hasTargetOrder = false;
 
@@ -251,7 +248,7 @@ TTC_orderWatchSector = {
 	_sectorBearing = [337.5, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5];
 	_sectorIndex = 0;
 	for "_i" from 0 to 7 do {
-		if (_sectorBearing # _i <= _commanderBearing && _commanderBearing < _sectorBearing # (_i + 1)) exitWith {
+		if (_sectorBearing # _i <= _commanderBearing && {_commanderBearing < _sectorBearing # (_i + 1)}) exitWith {
 			_sectorIndex = _i;
 			_bearing = ((_sectorBearing # _i) + 22.5) mod 360;
 		};
@@ -288,7 +285,7 @@ TTC_orderWatchSector = {
 			_delay = 2; 
 			_targetIsAlive = alive _lastTarget;
 			_targetIsWithinAssignedSector = [_driver, _lastTarget, _sectorBearing # _sectorIndex] call TTC_isTargetWithinAssignedSector; 
-			if (_targetIsAlive && _targetIsWithinAssignedSector) then {
+			if (_targetIsAlive && {_targetIsWithinAssignedSector}) then {
 				_gunner doWatch _lastTarget;
 				_gunner doFire _lastTarget;
 			}
@@ -387,7 +384,7 @@ TTC_isTargetWithinAssignedSector = {
 		};
 	} 
 	else {
-		if (_sectorLowerThreshold  <= _hullToTargetBearing && _hullToTargetBearing < (_sectorLowerThreshold + 45) mod 360) then {
+		if (_sectorLowerThreshold  <= _hullToTargetBearing && {_hullToTargetBearing < (_sectorLowerThreshold + 45) mod 360}) then {
 			_return = true;
 		} else {
 			_return = false;
@@ -791,7 +788,7 @@ TTC_main = {
 	
 	[player] call TTC_setGunnerAccuracy;
 
-	[] call TTC_addActionsToPlayer;
+	call TTC_addActionsToPlayer;
 };
 
-[] call TTC_main;
+call TTC_main;
