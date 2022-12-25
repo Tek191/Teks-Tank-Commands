@@ -1,6 +1,6 @@
 /* 
 Author: Tek
-Version 1.0.2
+Version 1.0.3
 */
 #define IS_CREWED_BY_COMMANDER_AND_GUNNER "player isEqualTo commander objectParent player && {!(isNull gunner objectParent player)}"
 #define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_NO_WATCH_SECTOR_ORDER "!TTC_hasWatchSectorOrder && {player isEqualTo commander objectParent player} && {!(isNull gunner objectParent player)}"
@@ -132,18 +132,21 @@ TTC_orderTargetUnit = {
 	private _str = format["Gunner target %1, bearing %2, range %3", _targetType, _bearingToTarget, _distanceToTarget];
 	_commander groupChat _str;
 
-	while {TTC_hasTargetOrder && {alive _target}} do {
-		sleep 1;
-	};
+	[{!TTC_hasTargetOrder || !alive (_this # 0)}, {
+		if (!alive (_this # 0)) then {
+			(_this # 1) groupChat "Target neutralized!";
+		};
 
-	if (!alive _target) then {_gunner groupChat "Target neutralized!";};
-	_gunner doWatch objNull;
-	TTC_hasTargetOrder = false;
+		(_this # 1) doWatch objNull;
+		TTC_hasTargetOrder = false;
 
-	if (_wasAutotargetEnabled) then { 
-		if (isManualFire _vehicle) then {_commander action ["manualFireCancel", _vehicle];};
-		_gunner enableAI "AUTOTARGET";
-	};
+		if (_this # 2) then { 
+			if (isManualFire (_this # 3)) then {
+				(_this # 4) action ["manualFireCancel", _this # 3];
+			};
+			(_this # 1) enableAI "AUTOTARGET";
+		};
+	}, [_target, _gunner, _wasAutotargetEnabled, _vehicle, _commander]] call CBA_fnc_waitUntilAndExecute;
 };
 
 
@@ -195,12 +198,12 @@ TTC_orderSetTurretDirection = {
 	private _str = format["Gunner watch bearing %1.", _bearingToTarget];
 	_commander groupChat _str;
 
-	waitUntil {sleep 0.5; !TTC_hasTargetOrder}; 
-
-	if (_wasAutotargetEnabled) then {
-		if (isManualFire _vehicle) then {_commander action ["manualFireCancel", _vehicle];};
-		_gunner enableAI "AUTOTARGET";
-	};
+	[{!TTC_hasTargetOrder}, {
+		if (_this # 0) then {
+			if (isManualFire _this # 1) then {(_this # 2) action ["manualFireCancel", _vehicle];};
+			(_this # 3) enableAI "AUTOTARGET";
+		};
+	}, [_wasAutotargetEnabled, _vehicle, _commander, _gunner]] call CBA_fnc_waitUntilAndExecute;
 };
 
 
@@ -220,10 +223,11 @@ TTC_orderWatchSector = {
 	his sector. 
 	*/	
 	params ["_commander"];
-	private ["_commanderBearing", "_desiredDirection", "_primaryTarget", "_nearestTargets", "_targetIsAlive", "_targetIsWithinAssignedSector"];
+	private ["_commanderBearing"];
 
 	TTC_hasWatchSectorOrder = true;
 	TTC_hasTargetOrder = false;
+	TTC_orderWatchSector_currentTarget = -1;
 
 	private _vehicle = vehicle _commander;
 	private _gunner = gunner _vehicle;
@@ -256,61 +260,64 @@ TTC_orderWatchSector = {
 	
 	private _str = format["Gunner watch %1.", _direction];
 	_commander groupChat _str;
-
-	private _lastTarget = -1; 
-	private _delay = 1;
-	while {TTC_hasWatchSectorOrder} do {
-		/*Gunner targets most dangerous enemy within a 45 degree cone (22.5 left/right of barrel).
-		  If not set to autotarget or the target has been destroyed/lost then continues to watch sector*/
-		if (_lastTarget isNotEqualTo -1) then {
-			_delay = 2; 
-			_targetIsAlive = alive _lastTarget;
-			_targetIsWithinAssignedSector = [_driver, _lastTarget, _sectorBearing # _sectorIndex] call TTC_isTargetWithinAssignedSector; 
-			if (_targetIsAlive && {_targetIsWithinAssignedSector}) then {
-				_gunner doWatch _lastTarget;
-				_gunner doFire _lastTarget;
-			}
-			else {
-				_lastTarget = -1;
-				_delay = 1; 
-
-				if (!_targetIsAlive) then {
-					_gunner groupChat "Target destroyed."; 
-					}; 
-
-				if (!_targetIsWithinAssignedSector) then {
-					_gunner groupChat "Lost target.";
-					}; 
-
-				_desiredDirection = _vehicle modelToWorld [_xOffset, _yOffset, 0];
-				_gunner doWatch objNull;
-				_gunner doWatch _desiredDirection;				
-			};
-		} 
+ 
+	[{				
+		if (!TTC_hasWatchSectorOrder) then {
+			[_this # 1] call CBA_fnc_removePerFrameHandler;
+		}
 		else {
-			_desiredDirection = _vehicle modelToWorld [_xOffset, _yOffset, 0];
-			_gunner doWatch objNull;
-			_gunner doWatch _desiredDirection;
-		};		
-		
-		/*Get enemies within a 45 degree cone (22.5 left/right) of barrel*/
-		if (_gunner checkAIFeature "AUTOTARGET") then {
-			_nearestTargets = [_gunner, 2000] call TTC_getNearTargets;
-			_nearestTargets = [_gunner, _nearestTargets] call TTC_getValidTargetsWithinSector;
-			if (count _nearestTargets isNotEqualTo 0) then {
-				_primaryTarget = _nearestTargets # 0;
-				if (_lastTarget isNotEqualTo _primaryTarget) then {
-					_lastTarget = _primaryTarget;
-					_gunner groupChat format["Identified target, %1", [_primaryTarget] call TTC_getTargetType];
-				};
-			};
-		};
+			private ["_desiredDirection", "_primaryTarget", "_nearestTargets", "_targetIsAlive", "_targetIsWithinAssignedSector"];
+			
+			/*Gunner targets most dangerous enemy within a 45 degree cone (22.5 left/right of barrel).
+			If not set to autotarget or the target has been destroyed/lost then continues to watch sector*/
+			if (TTC_orderWatchSector_currentTarget isNotEqualTo -1) then {
+				TTC_orderWatchSector_delay = 2;
+				_targetIsAlive = alive TTC_orderWatchSector_currentTarget;
+				_targetIsWithinAssignedSector = [_this # 0 # 1, TTC_orderWatchSector_currentTarget, (_this # 0 # 2) # (_this # 0 # 3)] call TTC_isTargetWithinAssignedSector; 
+				if (_targetIsAlive && {_targetIsWithinAssignedSector}) then {
+					(_this # 0 # 0) doWatch TTC_orderWatchSector_currentTarget;
+					(_this # 0 # 0) doFire TTC_orderWatchSector_currentTarget;
+				}
+				else {
+					TTC_orderWatchSector_currentTarget = -1;
+					TTC_orderWatchSector_delay = 1;
 
-		/*Required at minimum 1 seconds to prevent gunner
-		  from swinging turret from side to side on Autotarget.
-		  2 seconds for when the gunner has target.*/
-		sleep _delay; 
-	};
+					if (!_targetIsAlive) then {
+						(_this # 0 # 0) groupChat "Target destroyed."; 
+					}; 
+
+					if (!_targetIsWithinAssignedSector) then {
+						(_this # 0 # 0) groupChat "Lost target.";
+					}; 
+
+					_desiredDirection = (_this # 0 # 4) modelToWorld [_this # 0 # 5, _this # 0 # 6, 0];
+					(_this # 0 # 0) doWatch objNull;
+					(_this # 0 # 0) doWatch _desiredDirection;				
+				};
+			} 
+			else {
+				_desiredDirection = (_this # 0 # 4) modelToWorld [_this # 0 # 5, _this # 0 # 6, 0];
+				(_this # 0 # 0) doWatch objNull;
+				(_this # 0 # 0) doWatch _desiredDirection;
+			};
+
+			/*Get enemies within a 45 degree cone (22.5 left/right) of barrel*/
+			if ((_this # 0 # 0) checkAIFeature "AUTOTARGET") then {
+				_nearestTargets = [_this # 0 # 0, 2000] call TTC_getNearTargets;
+				_nearestTargets = [_this # 0 # 0, _nearestTargets] call TTC_getValidTargetsWithinSector;
+				if (count _nearestTargets isNotEqualTo 0) then {
+					_primaryTarget = _nearestTargets # 0;
+					if (TTC_orderWatchSector_currentTarget isNotEqualTo _primaryTarget) then {
+						TTC_orderWatchSector_currentTarget = _primaryTarget;
+						(_this # 0 # 0) groupChat format["Identified target, %1", [TTC_orderWatchSector_currentTarget] call TTC_getTargetType];
+					};
+				} 
+				else {
+					TTC_orderWatchSector_currentTarget = -1;
+				};
+			};		
+		};	
+	}, TTC_orderWatchSector_delay, [_gunner, _driver, _sectorBearing, _sectorIndex, _vehicle, _xOffset, _yOffset]] call CBA_fnc_addPerFrameHandler;
 };
 
 
@@ -759,6 +766,10 @@ TTC_main = {
 	/*Used as flag to cancel order and to update addActions*/
 	TTC_hasWatchSectorOrder = false;
 	TTC_hasTargetOrder = false;
+	
+	/*Used for referencing in Watch Sector*/
+	TTC_orderWatchSector_currentTarget = -1;
+	TTC_orderWatchSector_delay = 1;
 
 	/*Used for identifying units*/
 	TTC_enemySides = [player] call TTC_getEnemySides;
@@ -776,4 +787,4 @@ TTC_main = {
 	call TTC_addActionsToPlayer;
 };
 
-call TTC_main;
+0 spawn {{call TTC_main;} call CBA_fnc_directCall;};
