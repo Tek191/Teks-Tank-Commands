@@ -1,6 +1,6 @@
 /* 
 Author: Tek
-Version 1.0.1
+Version 1.0.2
 */
 #define IS_CREWED_BY_COMMANDER_AND_GUNNER "player isEqualTo commander objectParent player && {!(isNull gunner objectParent player)}"
 #define IS_CREWED_BY_COMMANDER_AND_GUNNER_WITH_GUNNER_HAVING_NO_WATCH_SECTOR_ORDER "!TTC_hasWatchSectorOrder && {player isEqualTo commander objectParent player} && {!(isNull gunner objectParent player)}"
@@ -22,11 +22,10 @@ TTC_getTargetType = {
 	Object (ammobox, flag) or Logic (unit).
 	*/
 	params ["_unit"];
-	private ["_objectType", "_category", "_type"];
 
-	_objectType = _unit call BIS_fnc_objectType;
-	_category = _objectType # 0;
-	_type = _objectType # 1;
+	private _objectType = _unit call BIS_fnc_objectType;
+	private _category = _objectType # 0;
+	private _type = _objectType # 1;
 
 if (_category isEqualTo "Soldier") exitWith {"Infantry"};
 	if (_category isEqualTo "Logic") exitWith {"Logic Object"};
@@ -106,16 +105,15 @@ TTC_orderTargetUnit = {
 	When the target is destroyed will announce so in chat.
 	*/
 	params ["_commander"];
-	private ["_vehicle", "_gunner", "_commanderTurretPath", "_target", "_distanceToTarget", "_bearingToTarget", "_targetType", "_str", "_wasAutotargetEnabled"];
 
-	_vehicle = vehicle _commander;
-	_gunner = gunner _vehicle;
-	_commanderTurretPath = _vehicle unitTurret _commander;
+	private _vehicle = vehicle _commander;
+	private _gunner = gunner _vehicle;
+	private _commanderTurretPath = _vehicle unitTurret _commander;
 
-	_target = cursorTarget;
+	private _target = cursorTarget;
 	if (_target isEqualTo objNull) exitWith {_gunner groupChat "No visual!"};
 
-	_wasAutotargetEnabled = _gunner checkAIFeature "AUTOTARGET";
+	private _wasAutotargetEnabled = _gunner checkAIFeature "AUTOTARGET";
 
 	TTC_hasWatchSectorOrder = false; 
 	TTC_hasTargetOrder = true;
@@ -126,12 +124,12 @@ TTC_orderTargetUnit = {
 	_gunner doWatch objNull;
 	_gunner doFire _target;
 
-	_distanceToTarget = [_commander distance _target] call TTC_getRoundedDistanceToNearest100;
-	_bearingToTarget = ([vehicle _commander, _commanderTurretPath, false] call CBA_fnc_turretDir) # 0;
+	private _distanceToTarget = [_commander distance _target] call TTC_getRoundedDistanceToNearest100;
+	private _bearingToTarget = ([vehicle _commander, _commanderTurretPath, false] call CBA_fnc_turretDir) # 0; 
 	_bearingToTarget = [_bearingToTarget] call TTC_getFormattedBearing;
-	_targetType = [_target] call TTC_getTargetType;
+	private _targetType = [_target] call TTC_getTargetType;
 	
-	_str = format["Gunner target %1, bearing %2, range %3", _targetType, _bearingToTarget, _distanceToTarget];
+	private _str = format["Gunner target %1, bearing %2, range %3", _targetType, _bearingToTarget, _distanceToTarget];
 	_commander groupChat _str;
 
 	while {TTC_hasTargetOrder && {alive _target}} do {
@@ -160,21 +158,20 @@ TTC_orderSetTurretDirection = {
 	Gunner directs turret to the same bearing as the Commander is facing.
 	*/	
 	params ["_commander"];
-	private ["_vehicle", "_gunner", "_commanderTurretPath", "_bearingToTarget", "_commanderTurretDirection", "_commanderAzimuth", 
-		"_commanderElevation", "_xOffset", "_yOffset", "_desiredDirection", "_str", "_wasAutotargetEnabled"];
+	private ["_bearingToTarget", "_commanderTurretDirection"];
 	
 	TTC_hasWatchSectorOrder = false;
 	TTC_hasTargetOrder = true;
 
-	_vehicle = vehicle _commander;
-	_gunner = gunner _vehicle;
+	private _vehicle = vehicle _commander;
+	private _gunner = gunner _vehicle;
 
-	_wasAutotargetEnabled = _gunner checkAIFeature "AUTOTARGET"; 
+	private  _wasAutotargetEnabled = _gunner checkAIFeature "AUTOTARGET"; 
 	_gunner disableAI "AUTOTARGET"; 
 	
 	if (!isManualFire _vehicle) then {_commander action ["ManualFire", _vehicle];};
 	
-	_commanderTurretPath = _vehicle unitTurret _commander;
+	private _commanderTurretPath = _vehicle unitTurret _commander;
 	if (isTurnedOut _commander) then {
 		_bearingToTarget = ([_commander] call CBA_fnc_viewDir) # 0;
 		_commanderTurretDirection = [_commander] call CBA_fnc_viewDir;
@@ -186,16 +183,16 @@ TTC_orderSetTurretDirection = {
 	};
 	_bearingToTarget = [_bearingToTarget] call TTC_getFormattedBearing;
 
-	_commanderAzimuth = _commanderTurretDirection # 0;
-	_commanderElevation = _commanderTurretDirection # 1;
-	_xOffset = 360 * (sin _commanderAzimuth); 
-	_yOffset = 360 * (cos _commanderAzimuth); 
-	_desiredDirection = _vehicle modelToWorld [_xOffset, _yOffset, _commanderElevation];
+	private _commanderAzimuth = _commanderTurretDirection # 0;
+	private _commanderElevation = _commanderTurretDirection # 1;
+	private _xOffset = 360 * (sin _commanderAzimuth); 
+	private _yOffset = 360 * (cos _commanderAzimuth); 
+	private _desiredDirection = _vehicle modelToWorld [_xOffset, _yOffset, _commanderElevation];
 
 	_gunner doWatch objNull;
 	_gunner doWatch _desiredDirection;
 
-	_str = format["Gunner watch bearing %1.", _bearingToTarget];
+	private _str = format["Gunner watch bearing %1.", _bearingToTarget];
 	_commander groupChat _str;
 
 	waitUntil {sleep 0.5; !TTC_hasTargetOrder}; 
@@ -223,20 +220,18 @@ TTC_orderWatchSector = {
 	his sector. 
 	*/	
 	params ["_commander"];
-	private ["_vehicle", "_gunner", "_commanderTurretPath", "_commanderBearing", "_bearing", "_sectorBearing", "_sectorIndex", "_direction", 
-		"_xOffset", "_yOffset", "_desiredDirection", "_str", "_primaryTarget", "_nearestTargets", "_driver", "_lastTarget", "_targetIsAlive",
-		"_targetIsWithinAssignedSector", "_delay"];
+	private ["_commanderBearing", "_desiredDirection", "_primaryTarget", "_nearestTargets", "_targetIsAlive", "_targetIsWithinAssignedSector"];
 
 	TTC_hasWatchSectorOrder = true;
 	TTC_hasTargetOrder = false;
 
-	_vehicle = vehicle _commander;
-	_gunner = gunner _vehicle;
-	_driver = driver _vehicle;
+	private _vehicle = vehicle _commander;
+	private _gunner = gunner _vehicle;
+	private _driver = driver _vehicle;
 
 	if (!isManualFire _vehicle) then {_commander action ["ManualFire", _vehicle];};
 	
-	_commanderTurretPath = _vehicle unitTurret _commander;
+	private _commanderTurretPath = _vehicle unitTurret _commander;
 	if (isTurnedOut _commander) then {
 		_commanderBearing = [_commander] call TTC_getBearingRelativeToHullFromCommander;
 	}
@@ -244,9 +239,9 @@ TTC_orderWatchSector = {
 		_commanderBearing = ([_vehicle, _commanderTurretPath, true] call CBA_fnc_turretDir) # 0; //References hull as North
 	};
 	
-	_bearing = 0;
-	_sectorBearing = [337.5, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5];
-	_sectorIndex = 0;
+	private _bearing = 0;
+	private _sectorBearing = [337.5, 22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5];
+	private _sectorIndex = 0;
 	for "_i" from 0 to 7 do {
 		if (_sectorBearing # _i <= _commanderBearing && {_commanderBearing < _sectorBearing # (_i + 1)}) exitWith {
 			_sectorIndex = _i;
@@ -254,31 +249,17 @@ TTC_orderWatchSector = {
 		};
 	};
 
-	_direction = [_sectorIndex] call TTC_getSectorName;
+	private _direction = [_sectorIndex] call TTC_getSectorName;
 
-	_xOffset = 360 * (sin _bearing); 
-	_yOffset = 360 * (cos _bearing);
+	private _xOffset = 360 * (sin _bearing); 
+	private _yOffset = 360 * (cos _bearing);
 	
-	_str = format["Gunner watch %1.", _direction];
+	private _str = format["Gunner watch %1.", _direction];
 	_commander groupChat _str;
 
-	_lastTarget = -1; 
-	_delay = 1;
+	private _lastTarget = -1; 
+	private _delay = 1;
 	while {TTC_hasWatchSectorOrder} do {
-		/*Gunner automatically targets enemies within a 45 degree cone (22.5 left/right of barrel) 
-		  */
-		if (_gunner checkAIFeature "AUTOTARGET") then {
-			_nearestTargets = [_gunner, 2000] call TTC_getNearTargets;
-			_nearestTargets = [_gunner, _nearestTargets] call TTC_getValidTargetsWithinSector;
-			if (count _nearestTargets isNotEqualTo 0) then {
-				_primaryTarget = _nearestTargets # 0;
-				if (_lastTarget isNotEqualTo _primaryTarget) then {
-					_lastTarget = _primaryTarget;
-					_gunner groupChat format["Identified target, %1", [_primaryTarget] call TTC_getTargetType];
-				};
-			};
-		};
-
 		/*Gunner targets most dangerous enemy within a 45 degree cone (22.5 left/right of barrel).
 		  If not set to autotarget or the target has been destroyed/lost then continues to watch sector*/
 		if (_lastTarget isNotEqualTo -1) then {
@@ -310,6 +291,19 @@ TTC_orderWatchSector = {
 			_desiredDirection = _vehicle modelToWorld [_xOffset, _yOffset, 0];
 			_gunner doWatch objNull;
 			_gunner doWatch _desiredDirection;
+		};		
+		
+		/*Get enemies within a 45 degree cone (22.5 left/right) of barrel*/
+		if (_gunner checkAIFeature "AUTOTARGET") then {
+			_nearestTargets = [_gunner, 2000] call TTC_getNearTargets;
+			_nearestTargets = [_gunner, _nearestTargets] call TTC_getValidTargetsWithinSector;
+			if (count _nearestTargets isNotEqualTo 0) then {
+				_primaryTarget = _nearestTargets # 0;
+				if (_lastTarget isNotEqualTo _primaryTarget) then {
+					_lastTarget = _primaryTarget;
+					_gunner groupChat format["Identified target, %1", [_primaryTarget] call TTC_getTargetType];
+				};
+			};
 		};
 
 		/*Required at minimum 1 seconds to prevent gunner
@@ -364,11 +358,11 @@ TTC_isTargetWithinAssignedSector = {
 	Checks if the bearing is within the given sector.
 	*/	
 	params ["_driver", "_target", "_sectorLowerThreshold"];
-	private ["_return", "_hullBearing", "_targetToUnitBearing", "_hullToTargetBearing"];
+	private ["_return"];
 
-	_hullBearing = ([_driver] call CBA_fnc_viewDir) # 0; 
-	_targetToUnitBearing = _driver getDir _target; 
-	_hullToTargetBearing = _targetToUnitBearing - _hullBearing; 
+	private _hullBearing = ([_driver] call CBA_fnc_viewDir) # 0; 
+	private _targetToUnitBearing = _driver getDir _target; 
+	private _hullToTargetBearing = _targetToUnitBearing - _hullBearing; 
 
 	/*Ensure bearing is positive*/
 	if (_hullToTargetBearing < 0) then { 
@@ -410,9 +404,8 @@ TTC_isTargetWithinGunnersVisionCone = {
 	{(_angleToTarget + 22.5) mod 360 < 22.5} is used for reflex angles [337.5, 360) -> [0, 22.5)
 	*/ 
 	params ["_gunner", "_target"];
-	private ["_angleToTarget"]; 
 
-	_angleToTarget = [_gunner, _target] call TTC_getAngleBetweenUnitAndTarget;
+	private _angleToTarget = [_gunner, _target] call TTC_getAngleBetweenUnitAndTarget;
 
 	if ((_angleToTarget + 22.5) mod 360 < 22.5 || _angleToTarget < 22.5) exitWith {true;};
 	false;
@@ -431,10 +424,10 @@ TTC_getNearTargets = {
 	First enemy is considered most dangerous to the unit calling (return format of nearTargets).
 	*/
 	params ["_unit", "_distance"];
-	private ["_nearTargets", "_nearEnemyTargets", "_side", "_object"];
+	private ["_side", "_object"];
 
-	_nearTargets = _unit nearTargets _distance;
-	_nearEnemyTargets = [];
+	private _nearTargets = _unit nearTargets _distance;
+	private _nearEnemyTargets = [];
 
 	{
 		_side = _x # 2;
@@ -477,10 +470,9 @@ TTC_getEnemySides = {
 		ARRAY<SIDES> _enemySides
 	*/
 	params ["_unit"];
-	private ["_unitSide", "_enemySides"];
 
-	_unitSide = side _unit;
-	_enemySides = [blufor, opfor, independent, civilian] - [_unitSide];
+	private _unitSide = side _unit;
+	private _enemySides = [blufor, opfor, independent, civilian] - [_unitSide];
 
 	{
 		if ([_unitSide, _x] call BIS_fnc_sideIsFriendly) then {_enemySides = _enemySides - [_x];};
@@ -501,10 +493,9 @@ TTC_cancelGunnerTarget = {
 	Forces gunner to stop watching / targeting an object
 	*/
 	params ["_commander"];
-	private ["_vehicle", "_gunner"];
 	
-	_vehicle = vehicle _commander;
-	_gunner = gunner _vehicle;
+	private _vehicle = vehicle _commander;
+	private _gunner = gunner _vehicle;
 
 	_gunner doWatch objNull;
 	_commander groupChat "Gunner cancel target!";
@@ -527,10 +518,9 @@ TTC_enableGunnerAutoTargeting = {
 	Does not cancel a Watch Sector order.
 	*/
 	params ["_commander"];
-	private ["_vehicle", "_gunner"];
 
-	_vehicle = vehicle _commander;
-	_gunner = gunner _vehicle;
+	private _vehicle = vehicle _commander;
+	private _gunner = gunner _vehicle;
 
 	if (isManualFire _vehicle) then {_commander action ["manualFireCancel", _vehicle];};
 
@@ -557,10 +547,9 @@ TTC_disableGunnerAutoTargeting = {
 	the turret is reset to the front of the hull.
 	*/
 	params ["_commander"];
-	private ["_vehicle", "_gunner"];
 
-	_vehicle = vehicle _commander;
-	_gunner = gunner _vehicle;
+	private _vehicle = vehicle _commander;
+	private _gunner = gunner _vehicle;
 	
 	if (!isManualFire _vehicle) then {_commander action ["ManualFire", _vehicle];};
 	
@@ -584,10 +573,9 @@ TTC_stopWatchingSector = {
 	Forces gunner to stop watching sector
 	*/
 	params ["_commander"];
-	private ["_vehicle", "_gunner"];
 
-	_vehicle = vehicle _commander;
-	_gunner = gunner _vehicle;
+	private _vehicle = vehicle _commander;
+	private _gunner = gunner _vehicle;
 
 	_gunner doWatch objNull;
 	_commander groupChat "Gunner sticky front!";
@@ -598,10 +586,9 @@ TTC_stopWatchingSector = {
 
 TTC_setGunnerAccuracy = {
 	params ["_commander"];
-	private ["_vehicle", "_gunner"];
 	
-	_vehicle = vehicle _commander;
-	_gunner = gunner _vehicle;
+	private _vehicle = vehicle _commander;
+	private _gunner = gunner _vehicle;
 
 	{_gunner setSkill [_x, 1]} forEach ["aimingAccuracy", "aimingSpeed", "aimingShake"];
 };
@@ -631,15 +618,14 @@ TTC_getBearingRelativeToHullFromCommander = {
 	Actual Bearing is 360 + (-40) = 320 [Relative to Hull]
 	*/
 	params ["_commander"];
-	private ["_vehicle", "_driver", "_bearing", "_hullBearing", "_commanderBearing"];
 
-	_vehicle = vehicle _commander;
-	_driver = driver _vehicle;
+	private _vehicle = vehicle _commander;
+	private _driver = driver _vehicle;
 
-	_hullBearing = ([_driver] call CBA_fnc_viewDir) # 0;
-	_commanderBearing = ([_commander] call CBA_fnc_viewDir) # 0;
+	private _hullBearing = ([_driver] call CBA_fnc_viewDir) # 0;
+	private _commanderBearing = ([_commander] call CBA_fnc_viewDir) # 0;
 	
-	_bearing = _commanderBearing - _hullBearing;
+	private _bearing = _commanderBearing - _hullBearing;
 
 	if (_bearing < 0) then {
 		_bearing = 360 + _bearing;
@@ -672,10 +658,10 @@ TTC_getAngleBetweenUnitAndTarget = {
 	Angle = 25 [Relative to Unit]
 	*/
 	params ["_unit", "_target"];
-	private ["_unitBearing", "_targetToUnitBearing", "_angle"];
+	private ["_angle"];
 
-	_unitBearing = getDir _unit;
-	_targetToUnitBearing = _unit getDir _target;
+	private _unitBearing = getDir _unit;
+	private _targetToUnitBearing = _unit getDir _target;
 
 	/*Ensure angle is positive*/
 	if (_unitBearing > _targetToUnitBearing) then {
@@ -701,11 +687,10 @@ TTC_forceFire = {
 	on the first fire mode. It may be single fire.
 	*/
 	params ["_commander"];
-	private ["_vehicle", "_gunner", "_fireModes"];
 	
-	_vehicle = vehicle _commander;
-	_gunner = gunner _vehicle;
-	_fireModes = getArray (configFile >> "CfgWeapons" >> currentWeapon vehicle player >> "modes");
+	private _vehicle = vehicle _commander;
+	private _gunner = gunner _vehicle;
+	private _fireModes = getArray (configFile >> "CfgWeapons" >> currentWeapon vehicle player >> "modes");
 
 	_gunner forceWeaponFire [currentWeapon _vehicle, _fireModes # 0];
 };
