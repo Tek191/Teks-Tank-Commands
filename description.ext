@@ -1,0 +1,38 @@
+class CfgFunctions {
+	class TTC {
+		class functions {
+			file = "TTC";
+			class addActionsToPlayer {};
+			class addDriverVision {};
+			class addDriverMoveOrderHandler {};
+			class addKeyBindsToPlayer {};
+			class briefing {};
+			class cancelGunnerTarget {};
+			class constructor {postInit = 1;};
+			class disableGunnerAutoTargeting {};
+			class enableGunnerAutoTargeting {};
+			class forceFire {};
+			class getAngleBetweenUnitAndTarget {};
+			class getBearingRelativeToHullFromCommander {};
+			class getEnemySides {};
+			class getFormattedBearing {};
+			class getFormattedSpeed {};
+			class getNearTargets {};
+			class getRoundedDistanceToNearest100 {};
+			class getSectorName {};
+			class getSpeedConfiguration {};	
+			class getSpeedModeConfiguration {};
+			class getTargetType {};
+			class getValidTargetsWithinSector {};
+			class isTargetWithinAssignedSector {};
+			class isTargetWithinGunnersVisionCone {};
+			class isVehicleConfigured {};
+			class main {};
+			class orderSetTurretDirection {};
+			class orderTargetUnit {};			
+			class orderWatchSector {};		
+			class setGunnerAccuracy {};
+			class stopWatchingSector {};	
+		}
+	}
+}
